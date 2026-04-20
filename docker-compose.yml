@@ -1,0 +1,22 @@
+services:
+  video-downloader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: video-downloader:latest
+    container_name: video-downloader
+    ports:
+      - "8501:8501"
+    volumes:
+      - downloads:/app/download
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  downloads:
+    driver: local
