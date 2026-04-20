@@ -28,7 +28,6 @@ COPY --from=builder /install /usr/local
 
 # Copy application source
 COPY main.py .
-COPY src/ ./src/
 
 # Persist downloads to a named volume mounted at /app/download
 RUN mkdir -p /app/download

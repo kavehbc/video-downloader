@@ -3,7 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: video-downloader:latest
+      platforms:
+        - linux/amd64
+        - linux/arm64
+        - linux/arm/v7
+    image: kavehbc/video-downloader:latest
     container_name: video-downloader
     ports:
       - "8501:8501"
