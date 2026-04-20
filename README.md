@@ -1,5 +1,7 @@
 # 🎬 Video Downloader
 
+**GitHub Repository:** [https://github.com/kavehbc/video-downloader](https://github.com/kavehbc/video-downloader)
+
 A Streamlit web app for downloading videos from YouTube, X (Twitter), Facebook, Instagram, TikTok, and hundreds of other sites powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
 ## Features
@@ -57,6 +59,52 @@ Add `-v` to also remove the downloads volume:
 
 ```bash
 docker compose down -v
+```
+
+### Docker Run
+
+Build the image first (if not already built):
+
+```bash
+docker build -t kavehbc/video-downloader:latest .
+```
+
+Then run the container:
+
+```bash
+docker run -d \
+  --name video-downloader \
+  -p 8501:8501 \
+  -v downloads:/app/download \
+  --restart unless-stopped \
+  kavehbc/video-downloader:latest
+```
+
+| Flag | Description |
+|------|-------------|
+| `-d` | Run in detached (background) mode |
+| `--name video-downloader` | Assign a name to the container |
+| `-p 8501:8501` | Map host port 8501 to container port 8501 |
+| `-v downloads:/app/download` | Named volume to persist downloaded files |
+| `--restart unless-stopped` | Auto-restart the container unless manually stopped |
+
+Open [http://localhost:8501](http://localhost:8501) in your browser.
+
+To use a local folder instead of a named volume, replace `-v downloads:/app/download` with a bind mount:
+
+```bash
+# Linux / macOS
+-v /your/local/path:/app/download
+
+# Windows (PowerShell)
+-v C:\your\local\path:/app/download
+```
+
+To stop and remove the container:
+
+```bash
+docker stop video-downloader
+docker rm video-downloader
 ```
 
 ## Project Structure
