@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /install /usr/local
 
 # Copy application source
-COPY main.py .
+COPY . .
 
 # Persist downloads to a named volume mounted at /app/static
 RUN mkdir -p /app/static

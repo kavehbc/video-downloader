@@ -75,7 +75,7 @@ Then run the container:
 docker run -d \
   --name video-downloader \
   -p 8501:8501 \
-  -v downloads:/app/download \
+  -v downloads:/app/static \
   --restart unless-stopped \
   kavehbc/video-downloader:latest
 ```
@@ -90,7 +90,7 @@ docker run -d \
 
 Open [http://localhost:8501](http://localhost:8501) in your browser.
 
-To use a local folder instead of a named volume, replace `-v downloads:/app/download` with a bind mount:
+To use a local folder instead of a named volume, replace `-v downloads:/app/static` with a bind mount:
 
 ```bash
 # Linux / macOS
@@ -115,9 +115,8 @@ video-downloader/
 ├── requirements.txt     # Python dependencies
 ├── Dockerfile           # Multi-stage Docker image with FFmpeg
 ├── docker-compose.yml   # Build and run with a single command
-├── download/            # Downloaded files (git-ignored)
-│   └── .archive.txt     # Tracks downloaded playlist video IDs
-└── src/                 # Reserved for additional modules
+└── download/            # Downloaded files (git-ignored)
+    └── .archive.txt     # Tracks downloaded playlist video IDs
 ```
 
 ## Supported Sites
