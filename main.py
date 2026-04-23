@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+import tempfile
 import pandas as pd
 import streamlit as st
 import yt_dlp
@@ -49,8 +50,10 @@ def is_youtube(url: str) -> bool:
     return bool(YOUTUBE_PATTERN.search(url.strip()))
 
 
-def fetch_info(url: str) -> dict:
-    opts = {"quiet": True, "no_warnings": True}
+def fetch_info(url: str, cookie_file: str | None = None) -> dict:
+    opts: dict = {"quiet": True, "no_warnings": True}
+    if cookie_file:
+        opts["cookiefile"] = cookie_file
     with yt_dlp.YoutubeDL(opts) as ydl:
         return ydl.extract_info(url.strip(), download=False)
 
@@ -69,8 +72,10 @@ def _is_in_archive(video_id: str) -> bool:
     )
 
 
-def fetch_playlist_entries(url: str) -> list[dict]:
-    opts = {"quiet": True, "no_warnings": True, "extract_flat": "in_playlist"}
+def fetch_playlist_entries(url: str, cookie_file: str | None = None) -> list[dict]:
+    opts: dict = {"quiet": True, "no_warnings": True, "extract_flat": "in_playlist"}
+    if cookie_file:
+        opts["cookiefile"] = cookie_file
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url.strip(), download=False)
     entries = []
@@ -116,7 +121,7 @@ def _make_progress_hook(progress_bar, status_text):
     return hook
 
 
-def download_video(url: str, fmt: dict, progress_bar, status_text) -> Path:
+def download_video(url: str, fmt: dict, progress_bar, status_text, cookie_file: str | None = None) -> Path:
     ydl_opts: dict = {
         "outtmpl": str(DOWNLOAD_DIR / "%(title)s.%(ext)s"),
         "format": fmt["format"],
@@ -125,6 +130,9 @@ def download_video(url: str, fmt: dict, progress_bar, status_text) -> Path:
         "no_warnings": True,
         "progress_hooks": [_make_progress_hook(progress_bar, status_text)],
     }
+
+    if cookie_file:
+        ydl_opts["cookiefile"] = cookie_file
 
     if fmt["audio_only"]:
         ydl_opts["postprocessors"] = [
@@ -161,7 +169,22 @@ def main() -> None:
         "Video URL",
         placeholder="https://www.youtube.com/watch?v=...",
     )
-
+    
+    cookie_file = st.file_uploader(
+        "Optional: Upload cookies.txt for authenticated downloads (e.g. private YouTube videos)",
+        type=["txt"],
+    )
+    if cookie_file:
+        # save uploaded cookie file using tempfile to avoid issues with yt-dlp's file handling
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as tmp:
+            tmp.write(cookie_file.getvalue())
+            tmp_path = tmp.name
+        st.session_state.cookie_file = tmp_path
+    elif st.session_state.get("cookie_file"):
+        # Clear cookie file if user removes it from uploader
+        st.session_state.cookie_file = None
+        
+        
     yt = is_youtube(url) if url else False
     is_playlist = is_youtube_playlist(url) if url else False
 
@@ -211,7 +234,7 @@ def main() -> None:
         if fetch_btn and url:
             with st.spinner("Fetching playlist info…"):
                 try:
-                    st.session_state.playlist_entries = fetch_playlist_entries(url)
+                    st.session_state.playlist_entries = fetch_playlist_entries(url, st.session_state.get("cookie_file"))
                     st.session_state.playlist_url = url
                 except Exception as exc:
                     st.error(f"Could not fetch playlist: {exc}")
@@ -247,7 +270,7 @@ def main() -> None:
                         status_text.text(
                             f"({step + 1}/{total_pending}) {entries[idx]['Title']}"
                         )
-                        download_video(entries[idx]["URL"], fmt, progress_bar, status_text)
+                        download_video(entries[idx]["URL"], fmt, progress_bar, status_text, st.session_state.get("cookie_file"))
                         entries[idx]["Status"] = "✅ Downloaded"
                         # Update archive so future sessions detect this as downloaded
                         with open(ARCHIVE_FILE, "a", encoding="utf-8") as af:
@@ -283,7 +306,7 @@ def main() -> None:
         if preview_btn and url:
             with st.spinner("Fetching video info…"):
                 try:
-                    st.session_state.info = fetch_info(url)
+                    st.session_state.info = fetch_info(url, st.session_state.get("cookie_file"))
                     st.session_state.info_url = url
                 except Exception as exc:
                     st.error(f"Could not fetch video info: {exc}")
@@ -315,7 +338,7 @@ def main() -> None:
             status = st.empty()
             try:
                 status.text("Starting download…")
-                out_path = download_video(url, fmt, progress_bar, status)
+                out_path = download_video(url, fmt, progress_bar, status, st.session_state.get("cookie_file"))
                 progress_bar.progress(1.0)
                 status.empty()
                 st.session_state.downloaded_file = out_path
