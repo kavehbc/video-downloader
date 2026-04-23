@@ -1,13 +1,15 @@
 import re
 from pathlib import Path
 import tempfile
+import urllib.parse
 import pandas as pd
 import streamlit as st
 import yt_dlp
 
-DOWNLOAD_DIR = Path(__file__).parent / "download"
+DOWNLOAD_DIR = Path(__file__).parent / "static"
 DOWNLOAD_DIR.mkdir(exist_ok=True)
-ARCHIVE_FILE = DOWNLOAD_DIR / ".archive.txt"
+# Keep archive outside the static folder so it isn't publicly served
+ARCHIVE_FILE = Path(__file__).parent / ".archive.txt"
 
 YOUTUBE_PATTERN = re.compile(
     r"(?:https?://)?(?:www\.)?(?:youtube\.com/(?:watch|shorts|embed|v/)|youtu\.be/)",
@@ -124,6 +126,7 @@ def _make_progress_hook(progress_bar, status_text):
 def download_video(url: str, fmt: dict, progress_bar, status_text, cookie_file: str | None = None) -> Path:
     ydl_opts: dict = {
         "outtmpl": str(DOWNLOAD_DIR / "%(title)s.%(ext)s"),
+        "restrictfilenames": True,
         "format": fmt["format"],
         "merge_output_format": "mp4",
         "quiet": True,
@@ -258,6 +261,8 @@ def main() -> None:
                 st.session_state.downloaded_file = None
                 progress_bar = st.progress(0.0)
                 status_text = st.empty()
+                links_slot = st.empty()
+                completed_links_md = ""
                 pending_indices = [
                     i for i, e in enumerate(entries) if e["Status"] != "✅ Downloaded"
                 ]
@@ -270,11 +275,15 @@ def main() -> None:
                         status_text.text(
                             f"({step + 1}/{total_pending}) {entries[idx]['Title']}"
                         )
-                        download_video(entries[idx]["URL"], fmt, progress_bar, status_text, st.session_state.get("cookie_file"))
+                        out_path = download_video(entries[idx]["URL"], fmt, progress_bar, status_text, st.session_state.get("cookie_file"))
                         entries[idx]["Status"] = "✅ Downloaded"
                         # Update archive so future sessions detect this as downloaded
                         with open(ARCHIVE_FILE, "a", encoding="utf-8") as af:
                             af.write(f"youtube {entries[idx]['id']}\n")
+                        # Add a link so the user can watch the video immediately
+                        static_url = f"/app/static/{urllib.parse.quote(out_path.name)}"
+                        completed_links_md += f"- ▶️ [{entries[idx]['Title']}]({static_url})\n"
+                        links_slot.markdown("**Ready to watch:**\n" + completed_links_md)
                     except Exception as exc:  # noqa: BLE001
                         entries[idx]["Status"] = "❌ Failed"
                     st.session_state.playlist_entries = entries
@@ -344,6 +353,8 @@ def main() -> None:
                 st.session_state.downloaded_file = out_path
                 st.session_state.downloaded_file_url = url
                 st.success(f"✅ Download complete: **{out_path.name}**")
+                static_url = f"/app/static/{urllib.parse.quote(out_path.name)}"
+                st.markdown(f"[▶️ View in browser]({static_url})")
             except yt_dlp.utils.DownloadError as exc:
                 progress_bar.empty()
                 status.empty()
@@ -356,6 +367,8 @@ def main() -> None:
         # --- Save-to-device link ---
         dl_file: Path | None = st.session_state.get("downloaded_file")
         if dl_file and st.session_state.get("downloaded_file_url") == url and dl_file.exists():
+            static_url = f"/app/static/{urllib.parse.quote(dl_file.name)}"
+            st.markdown(f"[▶️ View in browser]({static_url})")
             mime = "audio/mpeg" if dl_file.suffix == ".mp3" else "video/mp4"
             with open(dl_file, "rb") as fh:
                 st.download_button(

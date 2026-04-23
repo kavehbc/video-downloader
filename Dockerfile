@@ -30,8 +30,8 @@ COPY --from=builder /install /usr/local
 # Copy application source
 COPY main.py .
 
-# Persist downloads to a named volume mounted at /app/download
-RUN mkdir -p /app/download
+# Persist downloads to a named volume mounted at /app/static
+RUN mkdir -p /app/static
 
 # Streamlit config: disable telemetry, allow all origins
 ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
